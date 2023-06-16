@@ -4,7 +4,8 @@
       #therefore before I begin on the tutorial regarding the manipulation of genetic files i would first show you how to submit a job to the cluster.
       
       
-#Section 1: How to Submit a Job to the Cluster 
+#Section 1: How to Submit a Job to the Cluster
+#https://kcniconfluence.camh.ca/display/SCC/Running+Jobs+on+SCC+Clusters
 #ok so what is a job? whenever you log into the cluster your first 2 lines of code look something like this
 
 ssh dev01 
@@ -13,10 +14,202 @@ cd /external/mgmt3/genome/scratch/Deluca/nalchalabi/TutorialPGRS/
 #you have accessed a development node and changed your directory to the necessary location to do your work.
 #however when you code on the development node you arent actually using the full computing power of the cluster. The cluster is a "super computer" in a sense in that its a bunch of computers connected togehter to perform computationally demanding tasks. 
 #the development nodes "ssh dev01 and ssh dev02" are just small parts of the cluster that are designed for you to put together a job submission to the cluster.... 
+#using a job submissoin allows you to completely shut down your computer or log off moba and the tasks will be completed, its much faster because you can use 100x the computing power and allows you to do multiple jobs concurrently.
+
+
+#so to upload a job you have to use the following command
+
+sbatch myscript.sh  
+
+#lets break this step down. sbatch is the command that sends your script file to the cluster to read. all the actual coding you want the cluster to do is in the myscript.sh file. this is just a file that you can create on the cluster or a text editor that has all the commands you want to run. 
+#how do i make a script file in the cluster? is something that you might be asking.
+#no worries, to do that follow the steps below:
+
+nano myscript.sh 
+
+#this will create a .sh file in your directory that is titled "myscript"
+#type all the commands you want into this script including the parameters you are setting for your job submission
+
+then press control + X, then press Y, then press enter 
+#this is save my script, yes i am sure, enter to leave the program.
+
+#ok so now you know how to make a script file, what do you put into it?
+#you need to include all the necessary parameter functions and the code itself.
+#i am going to attach the script we will use for the later stages down below and annotate what everything means. do not worry so much about the code thats being executed but rather the first lines where we are telling the cluster how we want the job to be completed.
+#also please access https://kcniconfluence.camh.ca/display/SCC/Running+Jobs+on+SCC+Clusters for more information on job submission and the cluster in gneeral.
+
+---------- Everything between these lines you would copy and paste directly into your myscript.sh file ---------------
+
+#!/bin/bash
+
+
+
+#!/bin/bash -l
+#SBATCH --job-name=attempt2NESARCHIGHSTRESS
+#SBATCH --mail-type=END,FAIL
+#SBATCH --mail-user=nzaar.alchalabi@mail.utoronto.ca
+#SBATCH --ntasks=1
+#SBATCH --mem=1gb
+#SBATCH --time=500:00:00
+#SBATCH --output=serial_test_%j.log
+#SBATCH --cpus-per-task=24
+#SBATCH --partition=verylong
+
+# Print current working directory, hostname, and date
+pwd
+hostname
+date
+
+# Check loaded modules
+module load bio/PLINK/1.9b_6.22-x86_64
+module load bio/BCFtools/1.14-GCC-10.2.0
+
+
+bcftools concat chr1.dose.vcf.gz chr2.dose.vcf.gz chr3.dose.vcf.gz chr4.dose.vcf.gz chr5.dose.vcf.gz chr6.dose.vcf.gz chr7.dose.vcf.gz chr8.dose.vcf.gz chr9.dose.vcf.gz chr10.dose.vcf.gz chr11.dose.vcf.gz chr12.dose.vcf.gz chr13.dose.vcf.gz chr14.dose.vcf.gz chr15.dose.vcf.gz chr16.dose.vcf.gz chr17.dose.vcf.gz chr18.dose.vcf.gz chr19.dose.vcf.gz chr20.dose.vcf.gz chr21.dose.vcf.gz chr22.dose.vcf.gz -Ou | 
+bcftools view -Ou -i 'R2>0.3' |
+bcftools norm -Ou -m -any |
+bcftools norm -Ou -f  /external/mgmt3/imaging/scratch/Epidemiology/zagabani/HighStressNesarc/human_g1k_v37.fasta |
+bcftools annotate -Oz -x ID -I +'%CHROM:%POS:%REF:%ALT' -o second.converted.R2_0.3.vcf.gz
+
+plink --vcf second.converted.R2_0.3.vcf.gz \
+--double-id \
+--allow-extra-chr 0 \
+--maf 0.01 \
+--make-bed \
+--out secondattempt_new_allchromosomes.MAF_0.01
+
+---------------------------------------------------------------------------------------------
+
+#ok so let us go through what the steps above are outlining. 
+#!/bin/bash -l                                                      this indicated to the cluster that your code is using the bash language. if you wanted python for example you would convert this to the python indicator 
+#SBATCH --job-name=attempt2NESARCHIGHSTRESS                         this is telling the cluster what you want to name your job, in our case we named it "attempt2nNESARCHIGHSTRESS"
+#SBATCH --mail-type=END,FAIL                                        this is telling the cluster that you want an email notification if the job was to end or fail 
+#SBATCH --mail-user=nzaar.alchalabi@mail.utoronto.ca                i think you can guess what this line is used for
+#SBATCH --ntasks=1                                                  this line is indicating that you want to use 1 node and you want your tasks to be run on the same node 
+#SBATCH --mem=1gb                                                   this line indicates the amount of RAM memory to use
+#SBATCH --time=500:00:00                                            *this is extremely important* please pay attention. This line indicates to the cluster that my job needs to run for x amount of time. if you put lets say 1:00:00 for 1 day, and your task takes longer than 1 day 
+                                                                                 then when the time runs out your job will be halted and you will lose all that progress you had made. So in any job always put way more time needed than what you actually think you will need to ensure no premature 
+                                                                                 stoppages occur. you can see here we put 500 days.
+#SBATCH --output=serial_test_%j.log                                  this line indicates to teh cluster that we want a you to generate a .txt file called serial_test.log that will give us the same outputs that our code would give us if we ran it on the development nodes. for example;
+                                                                          "task 1 has been completed, starting task 2" and what not.
+#SBATCH --cpus-per-task=24                                          this is a key line, it indicates to the cluster how much computing power you want to access. 24 cpus is a good amount but i recommend checking the website to find ways to get more out of the cluster.
+#SBATCH --partition=verylong                                        this line is similar to the time line in that it is telling the cluster that this task will take a very long time.
+
+# Print current working directory, hostname, and date               these three lines are house keeping lines that are necessary with all submissions
+pwd
+hostname
+date
+
+# Check loaded modules                                             this is also key, the cluster does not know what programs you need to do the coding. so you have to specify all the programs you need. (if you need R) then you can submit a job in R. 
+                                                                   in the code above i needed plink and bcftools so i had to load those modules into the cluster prior to the code starting.
+module load bio/PLINK/1.9b_6.22-x86_64
+module load bio/BCFtools/1.14-GCC-10.2.0
+
+
+#once your script is ready you can simply type:
+
+sbatch myscript.sh 
+
+#this will submit your script and job.
+#to check on job status you can do commands such as
+
+squeue -l -u <username>
+squeue -l -u nalchalabi
+
+
+#and there you have it you have submitted a job to the cluster and it is running in the background. you should receieve a job submission ID in the cluster and be good to go.
+n#ow you wait till yoour job is done or submit another job. 
+
+
 
 
 
 #Section 2: How to manipulate files for imputation and how to submit an imputation job to the michigan impute server
+#https://imputationserver.readthedocs.io/en/latest/prepare-your-data/
+
+
+#ok so the first step is to ensure you are in the correct workign directory, with all your genetic data in that direectory and you have loaded the necessary modules.
+
+module load bio/PLINK/1.9b_6.22-x86_64
+module load bio/BCFtools/1.14-GCC-10.2.0
+
+#before we impute lets first understand why we impute genetic data. 
+#Imputation of genetic data is a common practice in genetics research and analysis. It involves predicting or inferring missing genotypes in a dataset based on reference panels or other available genetic information.
+#Imputation serves several purposes and can provide various benefits: increased snp coverage, comparison and meta analysis, impute rare variants, quality control
+#before we can impute we have to prepare our data
+
+#start by downloading the following tools with the code below 
+
+wget http://www.well.ox.ac.uk/~wrayner/tools/HRC-1000G-check-bim-v4.2.7.zip
+wget ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sites.tab.gz
+
+#output is these two following files
+
+HRC-1000G-check-bim.pl
+HRC.r1-1.GRCh37.wgs.mac5.sites.tab
+
+#this will download a perl script and a reference map file.
+#the reference map file will be used to check your data is in the right build format (Ch37) and the perl script will execute the chcekcing and partitioning of your data into individual chromosomes.
+#next we need to create a frequency file for our samples. assume our plink files are called NzaarSample.bed/ NzaarSample.bim / NzaarSample.fam
+
+plink --freq --bfile NzaarSample --out NzaarSample_freq
+
+
+perl HRC-1000G-check-bim.pl -b NzaarSample.bim -f NzaarSample_freq.frq -r HRC.r1-1.GRCh37.wgs.mac5.sites.tab -h
+sh Run-plink.sh
+
+#the output for this step is 22 individually updated chromosomes, you are going to have  to convert all of the 22 into vcfs and then bgzip them to compress them.
+#i recommend using excel to basically write the same command line over and over again but changing a single number
+#i like to write out the parts of the code that stay the same and then the part that changes and use the =CONCAT function on excel to combine everything into the right code.
+
+plink --bfile  NzaarSample-updated-chr1 --recode vcf --out NzaarSampleOut1
+plink --bfile  NzaarSample-updated-chr2 --recode vcf --out NzaarSampleOut2
+plink --bfile  NzaarSample-updated-chr3 --recode vcf --out NzaarSampleOut3
+plink --bfile  NzaarSample-updated-chr4 --recode vcf --out NzaarSampleOut4
+plink --bfile  NzaarSample-updated-chr5 --recode vcf --out NzaarSampleOut5
+plink --bfile  NzaarSample-updated-chr6 --recode vcf --out NzaarSampleOut6
+plink --bfile  NzaarSample-updated-chr7 --recode vcf --out NzaarSampleOut7
+plink --bfile  NzaarSample-updated-chr8 --recode vcf --out NzaarSampleOut8
+plink --bfile  NzaarSample-updated-chr9 --recode vcf --out NzaarSampleOut9
+plink --bfile  NzaarSample-updated-chr10 --recode vcf --out NzaarSampleOut10
+plink --bfile  NzaarSample-updated-chr11 --recode vcf --out NzaarSampleOut11
+plink --bfile  NzaarSample-updated-chr12 --recode vcf --out NzaarSampleOut12
+plink --bfile  NzaarSample-updated-chr13 --recode vcf --out NzaarSampleOut13
+plink --bfile  NzaarSample-updated-chr14 --recode vcf --out NzaarSampleOut14
+plink --bfile  NzaarSample-updated-chr15 --recode vcf --out NzaarSampleOut15
+plink --bfile  NzaarSample-updated-chr16 --recode vcf --out NzaarSampleOut16
+plink --bfile  NzaarSample-updated-chr17 --recode vcf --out NzaarSampleOut17
+plink --bfile  NzaarSample-updated-chr18 --recode vcf --out NzaarSampleOut18
+plink --bfile  NzaarSample-updated-chr19 --recode vcf --out NzaarSampleOut19
+plink --bfile  NzaarSample-updated-chr20 --recode vcf --out NzaarSampleOut20
+plink --bfile  NzaarSample-updated-chr21 --recode vcf --out NzaarSampleOut21
+plink --bfile  NzaarSample-updated-chr22 --recode vcf --out NzaarSampleOut22
+
+#then you have to bgzip everything. BGzip is a special type of compression tool found in bcftools that the michigan impute server requires you to use. 
+bgzip NzaarSampleOut1.vcf
+bgzip NzaarSampleOut2.vcf
+bgzip NzaarSampleOut3.vcf
+bgzip NzaarSampleOut4.vcf
+bgzip NzaarSampleOut5.vcf
+bgzip NzaarSampleOut6.vcf
+bgzip NzaarSampleOut7.vcf
+bgzip NzaarSampleOut8.vcf
+bgzip NzaarSampleOut9.vcf
+bgzip NzaarSampleOut10.vcf
+bgzip NzaarSampleOut11.vcf
+bgzip NzaarSampleOut12.vcf
+bgzip NzaarSampleOut13.vcf
+bgzip NzaarSampleOut14.vcf
+bgzip NzaarSampleOut15.vcf
+bgzip NzaarSampleOut16.vcf
+bgzip NzaarSampleOut17.vcf
+bgzip NzaarSampleOut18.vcf
+bgzip NzaarSampleOut19.vcf
+bgzip NzaarSampleOut20.vcf
+bgzip NzaarSampleOut21.vcf
+bgzip NzaarSampleOut22.vcf
+
+#then take all these 22 files that have been zipped and move them to a folder on your desktop.
 
 
 
