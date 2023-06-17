@@ -124,18 +124,18 @@ n#ow you wait till yoour job is done or submit another job.
 
 
 
-#Section 2: How to manipulate files for imputation and how to submit an imputation job to the michigan impute server
+#Section 2: How to manipulate files for imputation and how to submit an imputation job to the Michigan impute server
 #https://imputationserver.readthedocs.io/en/latest/prepare-your-data/
 
 
-#ok so the first step is to ensure you are in the correct workign directory, with all your genetic data in that direectory and you have loaded the necessary modules.
+#ok so the first step is to ensure you are in the correct working directory, with all your genetic data in that directory and you have loaded the necessary modules.
 
 module load bio/PLINK/1.9b_6.22-x86_64
 module load bio/BCFtools/1.14-GCC-10.2.0
 
-#before we impute lets first understand why we impute genetic data. 
+#before we impute let's first understand why we impute genetic data. 
 #Imputation of genetic data is a common practice in genetics research and analysis. It involves predicting or inferring missing genotypes in a dataset based on reference panels or other available genetic information.
-#Imputation serves several purposes and can provide various benefits: increased snp coverage, comparison and meta analysis, impute rare variants, quality control
+#Imputation serves several purposes and can provide various benefits: increased snp coverage, comparison and meta-analysis, impute rare variants, and quality control
 #before we can impute we have to prepare our data
 
 #start by downloading the following tools with the code below 
@@ -148,19 +148,18 @@ wget ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sit
 HRC-1000G-check-bim.pl
 HRC.r1-1.GRCh37.wgs.mac5.sites.tab
 
-#this will download a perl script and a reference map file.
-#the reference map file will be used to check your data is in the right build format (Ch37) and the perl script will execute the chcekcing and partitioning of your data into individual chromosomes.
+#this will download a Perl script and a reference map file.
+#the reference map file will be used to check your data is in the right build format (Ch37) and the Perl script will execute the checking and partitioning of your data into individual chromosomes.
 #next we need to create a frequency file for our samples. assume our plink files are called NzaarSample.bed/ NzaarSample.bim / NzaarSample.fam
 
 plink --freq --bfile NzaarSample --out NzaarSample_freq
-
 
 perl HRC-1000G-check-bim.pl -b NzaarSample.bim -f NzaarSample_freq.frq -r HRC.r1-1.GRCh37.wgs.mac5.sites.tab -h
 sh Run-plink.sh
 
 #the output for this step is 22 individually updated chromosomes, you are going to have  to convert all of the 22 into vcfs and then bgzip them to compress them.
-#i recommend using excel to basically write the same command line over and over again but changing a single number
-#i like to write out the parts of the code that stay the same and then the part that changes and use the =CONCAT function on excel to combine everything into the right code.
+# I recommend using Excel to basically write the same command line over and over again but changing a single number
+# I like to write out the parts of the code that stay the same and then the part that changes and use the =CONCAT function on Excel to combine everything into the right code.
 
 plink --bfile  NzaarSample-updated-chr1 --recode vcf --out NzaarSampleOut1
 plink --bfile  NzaarSample-updated-chr2 --recode vcf --out NzaarSampleOut2
@@ -185,7 +184,7 @@ plink --bfile  NzaarSample-updated-chr20 --recode vcf --out NzaarSampleOut20
 plink --bfile  NzaarSample-updated-chr21 --recode vcf --out NzaarSampleOut21
 plink --bfile  NzaarSample-updated-chr22 --recode vcf --out NzaarSampleOut22
 
-#then you have to bgzip everything. BGzip is a special type of compression tool found in bcftools that the michigan impute server requires you to use. 
+#then you have to bgzip everything. BGzip is a special type of compression tool found in bcftools that the Michigan impute server requires you to use. 
 bgzip NzaarSampleOut1.vcf
 bgzip NzaarSampleOut2.vcf
 bgzip NzaarSampleOut3.vcf
@@ -210,11 +209,11 @@ bgzip NzaarSampleOut21.vcf
 bgzip NzaarSampleOut22.vcf
 
 #then take all these 22 files that have been zipped and move them to a folder on your desktop.
+#make an account on the michigan imputation server first and foremost. 
 
 
 
-
-#Section 3: Post imputation download and quality control
+#Section 3: Post-imputation download and quality control
 
 #section 4: PRSice2 for PRS Generation
 
