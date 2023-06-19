@@ -129,7 +129,6 @@ squeue -l -u nalchalabi
 #Section 2: How to manipulate files for imputation and how to submit an imputation job to the Michigan impute server
 #https://imputationserver.readthedocs.io/en/latest/prepare-your-data/
 
-
 #ok so the first step is to ensure you are in the correct working directory, with all your genetic data in that directory and you have loaded the necessary modules.
 
 module load bio/PLINK/1.9b_6.22-x86_64
@@ -138,9 +137,15 @@ module load bio/BCFtools/1.14-GCC-10.2.0
 #before we impute, let's first understand why we impute genetic data. 
 #Imputation of genetic data is a common practice in genetics research and analysis. It involves predicting or inferring missing genotypes in a dataset based on reference panels or other available genetic information.
 #Imputation serves several purposes and can provide various benefits: increased snp coverage, comparison and meta-analysis, impute rare variants, and quality control
+#Before we proceed we need to make sure we have the genetic samples that we truly want in the analysis.
+#on Excel create a .txt file of all the samples you want to impute, include their FID and IIDs in a two column .txt file. 
+#then run this plink command to keep the files you want
+
+plink --bfile input_file --keep sample_list.txt --make-bed --out output_file
+#start by downloading the following tools with the code below 
+
 #before we can impute we have to prepare our data
 
-#start by downloading the following tools with the code below 
 
 wget http://www.well.ox.ac.uk/~wrayner/tools/HRC-1000G-check-bim-v4.2.7.zip
 wget ftp://ngs.sanger.ac.uk/production/hrc/HRC.r1-1/HRC.r1-1.GRCh37.wgs.mac5.sites.tab.gz
