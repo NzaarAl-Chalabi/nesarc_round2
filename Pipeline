@@ -370,9 +370,223 @@ plink --bfile new_allchromosomes.converted.R2_0.3.MAF_0.01 --exclude duplicates.
 plink --bfile sample_imputed_clean1 --update-map shortnew2.txt --update-name --make-bed --out sample_imputed_clean2
 
 
-
-
 #section 4: PRSice2 for PRS Generation
 
-     
+ok so now we have our imputed genetic samples that are ready to the main QC pipeline outlined in choi et al. (https://choishingwan.github.io/PRS-Tutorial/). 
+This tutorial is very detailed and well done when it comes to completing the PRS pipeline.
+however, I understand some things might not be as intuitive as the tutorial assumes them to be so I have provided more explanation and guidance below.
+
+first we must quality control our summary statistics. 
+download the summary statistics file from Dropbox or whereever you have been given them from. Usually, you will email the author of a major GWAS study and 
+they will share their summary statistics table with you.
+
+you will have a table of approximately 8 million SNPs that you must manipulate so that it is in the proper format. (See below)
+
+CHR	BP	SNP	A1	A2	N	SE	P	OR	INFO	MAF
+1	756604	rs3131962	A	G	388028	0.00301666	0.483171	0.997886915712657	0.890557941364774	0.369389592764921
+1	768448	rs12562034	A	G	388028	0.00329472	0.834808	1.00068731609353	0.895893511351165	0.336845754096289
+1	779322	rs4040617	G	A	388028	0.00303344	0.42897	0.997603556067569	0.897508290615237	0.377368010940814
+
+This is approximately what we want our table to look like. however sometimes you are not provided INFO score so you can remove that column.
+This just means you will not be filtering for that value in this QC pipeline. 
+
+#some tips on manipulating a large text file to look like this.
+#use chatgpt to help you come up with the necessary commands for moving columns, changing values in columns etc. 
+#if you are not comfortable with that then a really brute force method could be to download the summary statistics text file, 
+      copy 1 million ROWs at a time and paste them into excel. You can easily manipulate the amount of rows in excel with its user friendly UI 
+      and then save the changes and move the data to a new text file. The problem with this is you will have to do that 8 times in a row to update 
+      all 8 million rows of SNPS. 
+
+once you have updated the table to look similar to the values above we can proceed with QC.
+
+start by zipping your txt file to create a new compressed file.
+
+gzip SummaryStatistics.txt 
+
+this creates the file SummaryStatistics.txt.gz
+
+now we start with QC.
+
+gunzip -c SummaryStatistics.txt.gz |\
+awk 'NR==1 || ($11 > 0.01) && ($10 > 0.8) {print}' |\
+gzip  > Height.gz
+
+###Decompresses and reads the Height.gwas.txt.gz file
+#Prints the header line (NR==1)
+#Prints any line with MAF above 0.01 ($11 because the eleventh column of the file contains the MAF information)
+#Prints any line with INFO above 0.8 ($10 because the tenth column of the file contains the INFO information)
+#Compresses and writes the results to Height.gz
+
+important things to note, if you don't have a INFO file then your columns will be numbered slightly differently.
+if you do not have an info file then you only quality control based on MAF scores for this step so your code will loook like this. 
+
+
+gunzip -c SummaryStatistics.txt.gz |\
+awk 'NR==1 || ($10 > 0.01) {print}' |\
+gzip  > Height.gz
+
+
+#this is the modified code assuming no INFO scores and you want to filter MAF to those greater than 0.01.
+#also I have used the same naming convention as the tutorial in CHOI et al, if you want to change names that can be easily done by manipulating the output file commands. 
+
+
+#now remove duplicate snps with this code 
+
+gunzip -c Height.gz |\
+awk '{seen[$3]++; if(seen[$3]==1){ print}}' |\
+gzip - > Height.nodup.gz
+
+#The above command does the following:
+#Decompresses and reads the Height.gz file
+#Count number of time SNP ID was observed, assuming the third column contian the SNP ID (seen[$3]++). If this is the first time seeing this SNP ID, print it.
+#Compresses and writes the results to Height.nodup.gz
+
+#again check to make sure your SNP IDs are in the third column before doing this.
+
+finally remove ambiguous snps with this command.
+
+gunzip -c Height.nodup.gz |\
+awk '!( ($4=="A" && $5=="T") || \
+        ($4=="T" && $5=="A") || \
+        ($4=="G" && $5=="C") || \
+        ($4=="C" && $5=="G")) {print}' |\
+    gzip > Height.QC.gz
+
+#this creates your final quality-controlled sample statistics file that we will use for PRSice. 
+
+
+#now we will create our QC target data 
+
+standard QC steps 
+
+plink \
+    --bfile EUR \
+    --maf 0.01 \
+    --hwe 1e-6 \
+    --geno 0.01 \
+    --mind 0.01 \
+    --write-snplist \
+    --make-just-fam \
+    --out EUR.QC
+
+
+go ahead and run this code 
+
+plink \
+    --bfile EUR \
+    --keep EUR.QC.fam \
+    --extract EUR.QC.snplist \
+    --indep-pairwise 200 50 0.25 \
+    --out EUR.QC
+
+
+plink \
+    --bfile EUR \
+    --extract EUR.QC.prune.in \
+    --keep EUR.QC.fam \
+    --het \
+    --out EUR.QC
+
+
+#open R module on your cluster and run this 
+
+dat <- read.table("EUR.QC.het", header=T) # Read in the EUR.het file, specify it has header
+m <- mean(dat$F) # Calculate the mean  
+s <- sd(dat$F) # Calculate the SD
+valid <- subset(dat, F <= m+3*s & F >= m-3*s) # Get any samples with F coefficient within 3 SD of the population mean
+write.table(valid[,c(1,2)], "EUR.valid.sample", quote=F, row.names=F) # print FID and IID for valid samples
+q() # exit R
+
+all these steps are outlined in CHOI et al in detail in what they do.
+#i believe PRSice performes a check of mismatching SNPs so that step wouldnt be necessary for us to perform.
+
+to generate the final step of QC data use 
+
+plink \
+    --bfile EUR \
+    --make-bed \
+    --out EUR.QC \
+    --extract EUR.QC.snplist \
+
+#this will create a basic cleaned file of our data. 
+
+#now we need to create all the necessary files for PRsice analysis.
+#to start, download the PRsice linux file from Choi et al and import that into your directory.
+#unzip the file and you should be ready to go in regards to using the program
+
+#below is the list of files we need to perform prsice. we already have the first 4 based on quality controlling our base and target data.
+#to create EUR.cov and EUR.height just use excel. All you need to do is include the FIID and IID followed by the sex (for the sex file) or the 
+      variables of interest for the .cov file. (phenotypes etc).
+
+Height.QC.gz	The post QC base data file. While PRSice-2 can automatically apply most filtering on the base file, it cannot remove duplicated SNPs
+EUR.QC.bed	This file contains the genotype data that passed the QC steps
+EUR.QC.bim	This file contains the list of SNPs that passed the QC steps
+EUR.QC.fam	This file contains the samples that passed the QC steps
+EUR.height	This file contains the phenotype data of the samples
+EUR.cov	This file contains the covariates of the samples
+EUR.eigenvec	This file contains the principal components (PCs) of the samples
+
+
+
+#to create the eigenvec file use the code below 
+
+# First, we need to perform prunning
+plink \
+    --bfile EUR.QC \
+    --indep-pairwise 200 50 0.25 \
+    --out EUR
+# Then we calculate the first 6 PCs
+plink \
+    --bfile EUR.QC \
+    --extract EUR.prune.in \
+    --pca 6 \
+    --out EUR
+
+#if you want more PC values change the 6 to 10 or w.e you want. 
+
+we need to now combine the covariables in analysis so run this R commmand.
+
+covariate <- read.table("EUR.cov", header=T)
+pcs <- read.table("EUR.eigenvec", header=F)
+colnames(pcs) <- c("FID","IID", paste0("PC",1:6))
+cov <- merge(covariate, pcs, by=c("FID", "IID"))
+write.table(cov,"EUR.covariate", quote=F, row.names=F)
+q()
+
+
+remember if you do more than 6 PCs you have to change the 3rd line of code to 1:10 or whatever the number of PCs you want to include.
+
+now you should be good to run PRSICE!!
+
+Rscript PRSice.R \
+    --prsice PRSice_linux \
+    --base Height.QC.gz \
+    --target EUR.QC \
+    --binary-target F \
+    --pheno EUR.height \
+    --cov EUR.covariate \
+    --stat OR \
+    --or \
+    --out EUR
+
+run this and you will get your results. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
      
